@@ -1,105 +1,121 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-public class player : MonoBehaviour {
+[RequireComponent(typeof(Animator))]
+[RequireComponent(typeof(Rigidbody))]
+public class Player : MonoBehaviour
+{
+    private Animator Animator;
+    private Rigidbody Rigidbody;
+    private Text ScoreText;
+    private float MoveSpeed;
+    private float JumpStrength;
+    private float TurnStrength;
+    private float MoveDirection;
+    private float TurnDirection;
+    private bool IsGrounded;
+    private bool IsJumping;
+    private Vector3 SpawnPos;
+    private Quaternion SpawnRot;
+    private int Score;
 
-    public Animator anim;
-    public Rigidbody rb;
-    public float jumpForce;
-    private float inputH;
-    private float inputV;
-    private bool isGrounded;
-    public float speed;
-    private Vector3 spawnPos;
-    private Quaternion spawnRot;
-    public int score;
-    public Text scoreText;
-    
-
-	void Start () {
-
-        anim = GetComponent<Animator>();
-        rb = GetComponent<Rigidbody>();
-        jumpForce = 1f;
-        speed = 1f;
-        isGrounded = true;
-        spawnPos = transform.position;
-        spawnRot = transform.rotation;
-        score = 0;
-        setScoreText();
-    }
-	
-	void Update () {
-
-        
-        //handling movement 
-        inputH = Input.GetAxis("Horizontal");
-        inputV = Input.GetAxis("Vertical");
-
-
-        float moveY = inputH * 150f * Time.deltaTime * speed;
-        float moveZ = inputV * 5f * Time.deltaTime * speed;
-
-        transform.Translate(0, 0, moveZ);
-        transform.Rotate(0, moveY, 0);
-        
-        //only able to jump when grounded
-        if (isGrounded == true)
-        {
-            anim.SetFloat("inputH", inputH);    //running animations working only when grounded
-            anim.SetFloat("inputV", inputV);
-
-            //jumping
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                
-                anim.SetBool("jump", true); //telling animator that a jump has been initiated
-                rb.AddForce(new Vector3(0, 500 * jumpForce, 0), ForceMode.Impulse); //actual jump
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            SceneManager.LoadScene(0);  //go back to main menu
-        }
-    }
-
-    //progressing levels
-    void nextLevel()
+    void Start()
     {
+        Animator = GetComponent<Animator>();
+        Rigidbody = GetComponent<Rigidbody>();
+        ScoreText = GameObject.Find("Score Text").GetComponentInChildren<Text>();
+        SetScore();
+        MoveSpeed = 5f;
+        JumpStrength = 588.6f;
+        TurnStrength = 200f;
+        IsGrounded = true;
+        IsJumping = false;
+        SpawnPos = transform.position;
+        SpawnRot = transform.rotation;
+        Score = 0;
+    }
+
+    void Update() // Get inputs here mostly.
+    {
+        MoveDirection = Input.GetAxis("Vertical");
+        TurnDirection = Input.GetAxis("Horizontal");
+
+        IsJumping = Input.GetAxis("Jump") != 0f && Input.GetAxis("Jump") != 1f;
+
+        if (IsGrounded && IsJumping)
+        {
+            Animator.SetBool("Jumping", true);
+            Rigidbody.AddForce(Vector3.up * JumpStrength * .67f, ForceMode.Impulse);
+            IsGrounded = false; // OnCollisionExit is not fast enough with setting onGround to false.
+        }
+        else
+        {
+            Animator.SetFloat("MoveDirection", MoveDirection);
+            Animator.SetFloat("TurnDirection", TurnDirection);
+        }
+
+        if (Input.GetAxis("Cancel") == 1f)
+        {
+            SceneManager.LoadScene(0);
+        }
+    }
+
+    void FixedUpdate() // AddForce/AddTorque reactions to inputs go here.
+    {
+        if (MoveDirection != 0)
+        {
+            Vector3 moveVelocity = transform.forward * MoveSpeed * MoveDirection;
+            Rigidbody.velocity = new Vector3(moveVelocity.x, Rigidbody.velocity.y, moveVelocity.z);
+        }
+
+        Rigidbody.AddTorque(transform.up * TurnStrength * TurnDirection, ForceMode.Force);
+
+        if (IsJumping)
+        {          
+            float jumpInverse = 1f - Input.GetAxis("Jump"); // The longer you hold jump, the less this becomes.
+            Vector3 jumpVector = Vector3.up * JumpStrength * jumpInverse;
+            Rigidbody.AddForce(jumpVector, ForceMode.Force);
+        }
+    }
+
+    IEnumerator LoadNextLevel()
+    {
+        yield return new WaitForSeconds(3f);
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
     }
 
     void OnCollisionEnter(Collision col)
     {
-        //checking if on ground
-        if (col.gameObject.tag == "Ground")
-        { 
-            isGrounded = true;
-            anim.SetBool("isGrounded", isGrounded);
-            anim.SetBool("jump", false);    //jump will always be reset to false once grounded
+        if (col.gameObject.tag == "Ground" && col.GetContact(0).normal.y != 0) // If Unity-chan didn't hit the edge or top of a platform, she doesn't land.
+        {
+            IsGrounded = true;
+            Animator.SetBool("Grounded", true);
+            Animator.SetBool("Jumping", false);
         }
 
-        //dying & respawning
-        else if (col.gameObject.tag == "Death")
+        if (col.gameObject.tag == "Bounds")
         {
-            transform.position = spawnPos;
-            transform.rotation = spawnRot;
-            rb.velocity = new Vector3(0f, 0f, 0f); //resetting velocity
-            anim.Play("Lose", -1, 0f);  //play lose animation
-        }   
+            transform.position = SpawnPos;
+            transform.rotation = SpawnRot;
+            Rigidbody.velocity = Vector3.zero;
+        }
+        else if (col.gameObject.tag == "Enemy")
+        {
+            transform.position = SpawnPos;
+            transform.rotation = SpawnRot;
+            Rigidbody.velocity = Vector3.zero;
+            Animator.Play("Lose", -1, 0f);
+        }
     }
 
-    //checking if left ground
     void OnCollisionExit(Collision col)
     {
-        if (col.gameObject.tag == "Ground")
+        if (col.gameObject.tag == "Ground" && Rigidbody.velocity.y != 0) // UnityChan might have landed, so check if she's not falling.
         {
-            isGrounded = false;
-            anim.SetBool("isGrounded", isGrounded);
+            IsGrounded = false;
+            Animator.SetBool("Grounded", IsGrounded);
         }
     }
 
@@ -108,40 +124,41 @@ public class player : MonoBehaviour {
         if (trig.gameObject.tag == "Score")
         {
             Destroy(trig.gameObject);
-            score++;
-            setScoreText();
+            Score++;
+            SetScore();
         }
 
-        else if (trig.gameObject.tag == "JumpPowerup")
+        else if (trig.gameObject.tag == "Powerup")
         {
             Destroy(trig.gameObject);
-            jumpForce = 1.5f;
+            JumpStrength = 588.6f * 1.5f;
         }
 
         else if (trig.gameObject.tag == "Checkpoint")
         {
-            spawnPos = trig.transform.position;  //set new spawn points
-            spawnRot = trig.transform.rotation;
-            Destroy(trig.gameObject);    //get rid of checkpoint
+            SpawnPos = trig.transform.position;
+            SpawnRot = trig.transform.rotation;
+            Destroy(trig.gameObject);
         }
 
-        else if (trig.gameObject.tag == "Goal" && score >= 5)    //requires all score pickups
+        else if (trig.gameObject.tag == "Goal" && Score == 5)
         {
             Destroy(trig.gameObject);
-            anim.Play("Win", -1, 0f);
-            Invoke("nextLevel", 3f);
+            Animator.Play("Win", -1, 0f);
+            StartCoroutine(LoadNextLevel());
         }
     }
 
-    void setScoreText()
+    void SetScore()
     {
-        if (score < 5)
+        if (Score < 5)
         {
-            scoreText.text = "Score: " + score.ToString();
+            ScoreText.text = "Score: " + Score.ToString() + "/5";
         }
         else
         {
-            scoreText.text = "Go to the goal!";
+            GameObject.Find("Goal").GetComponent<Renderer>().enabled = true; // Make the goal visible and interactable.
+            ScoreText.text = "Get to the goal!";
         }
     }
 }
