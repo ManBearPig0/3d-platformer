@@ -5,12 +5,13 @@ TagManager:
   serializedVersion: 2
   tags:
   - Ground
-  - Death
   - Checkpoint
   - Goal
   - Score
-  - JumpPowerup
   - Music
+  - Enemy
+  - Powerup
+  - Bounds
   layers:
   - Default
   - TransparentFX
