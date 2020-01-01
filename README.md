@@ -1,12 +1,12 @@
-# Read-me
-A 3D platformer made using Unity. Scripts all written in C#.
+# 3D Platformer
+A 3D platformer made using Unity and C#. The aim of the game is to collect all the pickups in the level and reach the end. You must avoid enemies and traverse the many obstacles that are in your way. Utilise power-ups and checkpoints scattered around the level. 
 
-The aim of the game is to collect all the pickups in the level and reach the end. You must avoid enemies and traverse the many obstacles that are in your way. Utilise power-ups and checkpoints scattered around the level. 
-
-#### Scripts include: 
-- Enemy chasing player
+#### Scripts include:
+- enemies chasing the player
 - obstacles moving in a fixed position
-- platforms that fall when the player lands on them and then return to their original position
-- pickup functionality
-- checkpoint/end functionality
-- deathzone
+- platforms that fall when the player lands on them
+- texture scaling
+- music player
+- pickups
+- checkpoints
+- level bounding box
