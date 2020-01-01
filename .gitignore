@@ -1,6 +1,7 @@
 # Visual Studio 2015 cache directory
-/.vs/
+.vs/
 
+Logs/
 Library/
 obj/
 *.csproj
